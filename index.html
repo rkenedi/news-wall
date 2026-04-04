@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="referrer" content="origin">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>News Wall</title>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -273,8 +273,8 @@
       { name: "ABC News",    channel: "UCBi2mrWuNuyYy4gbM6fU18Q" },
       { name: "NBC News",    channel: "UCeY0bbntWzzVIaj2z3QigXg" },
       { name: "CBS News",    channel: "UC8p1vwvWtl6T73JiExfWs1g" },
-      { name: "Fox News",    channel: "UCXIJgqnII2ZOINSWNOGFThA" },
-      { name: "Bloomberg",   channel: "UCIALMKvObZNtJ6AmdCLP7Lg" },
+      { name: "LiveNOW from Fox", channel: "UCuVFG34fkNnUkZKICs3HsnQ" },
+      { name: "Reuters",     channel: "UChqUTb7kYRX8-EiaN3XFrSQ" },
       { name: "Sky News",    channel: "UCoMdktPbSTixAyNGwb-UYkQ" },
       { name: "Al Jazeera",  channel: "UCNye-wNBqNL5ZzHSJj3l8Bg" },
       { name: "France 24",   channel: "UCQfwfsi5VrQ8yKZ-UWmAEFg" },
@@ -346,7 +346,7 @@
         iframe.id = `iframe-${i}`;
         iframe.allow = "autoplay; encrypted-media";
         iframe.setAttribute("allowfullscreen", "");
-        iframe.setAttribute("referrerpolicy", "origin");
+        iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
         iframe.src = embedUrl(source.channel, muteStates[i]);
 
         const label = document.createElement("div");
