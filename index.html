@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="origin">
   <title>News Wall</title>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -159,11 +160,82 @@
 
     .mute-btn.muted { background: var(--muted-color); }
     .mute-btn.unmuted { background: var(--unmuted-color); }
+
+    /* Startup overlay */
+    #startup-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      gap: 16px;
+      transition: opacity 0.4s;
+    }
+
+    #startup-overlay.hidden { opacity: 0; pointer-events: none; }
+
+    #startup-overlay h2 {
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    #startup-overlay p {
+      font-size: 14px;
+      color: var(--text-dim);
+      max-width: 480px;
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    #startup-overlay code {
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-family: "SF Mono", Menlo, monospace;
+      color: var(--accent);
+    }
+
+    #start-btn {
+      margin-top: 8px;
+      padding: 10px 32px;
+      border: none;
+      border-radius: 8px;
+      background: var(--accent);
+      color: white;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    #start-btn:hover { background: #2563eb; }
   </style>
 </head>
 <body>
 
-  <div id="toolbar">
+  <!-- Startup overlay: needed because Safari blocks autoplay without user gesture -->
+  <div id="startup-overlay">
+    <h2>NEWS WALL</h2>
+    <p>
+      Live streams from 9 news sources in a configurable grid.<br>
+      All streams start muted. Hover any panel to unmute individually.
+    </p>
+    <p style="font-size:12px;margin-top:4px">
+      For best results, serve this file from localhost:
+    </p>
+    <code>python3 -m http.server 8000</code>
+    <p style="font-size:12px">
+      Then open <strong>http://localhost:8000</strong> in Safari.
+    </p>
+    <button id="start-btn" onclick="startWall()">Launch News Wall</button>
+  </div>
+
+  <div id="toolbar" style="display:none">
     <h1>NEWS WALL</h1>
     <div class="toolbar-controls">
       <button class="btn layout-btn" data-layout="2x2" title="2x2 Grid">
@@ -195,24 +267,24 @@
   <div id="grid" class="grid-2x3"></div>
 
   <script>
-    // News sources using YouTube channel IDs for live stream auto-resolution
-    // The /live URL automatically finds the current live broadcast for each channel
+    // YouTube channels with their handle for /live resolution
+    // We use @handle/live which redirects to the current live stream
     const NEWS_SOURCES = [
-      { name: "ABC News",    channelId: "UCBi2mrWuNuyYy4gbM6fU18Q" },
-      { name: "NBC News",    channelId: "UCeY0bbntWzzVIaj2z3QigXg" },
-      { name: "CBS News",    channelId: "UC8p1vwvWtl6T73JiExfWs1g" },
-      { name: "Fox News",    channelId: "UCXIJgqnII2ZOINSWNOGFThA" },
-      { name: "Bloomberg",   channelId: "UCIALMKvObZNtJ6AmdCLP7Lg" },
-      { name: "Sky News",    channelId: "UCoMdktPbSTixAyNGwb-UYkQ" },
-      { name: "Al Jazeera",  channelId: "UCNye-wNBqNL5ZzHSJj3l8Bg" },
-      { name: "France 24",   channelId: "UCQfwfsi5VrQ8yKZ-UWmAEFg" },
-      { name: "DW News",     channelId: "UCknLrEdhRCp1aegoMqRaCZg" },
+      { name: "ABC News",    channel: "UCBi2mrWuNuyYy4gbM6fU18Q" },
+      { name: "NBC News",    channel: "UCeY0bbntWzzVIaj2z3QigXg" },
+      { name: "CBS News",    channel: "UC8p1vwvWtl6T73JiExfWs1g" },
+      { name: "Fox News",    channel: "UCXIJgqnII2ZOINSWNOGFThA" },
+      { name: "Bloomberg",   channel: "UCIALMKvObZNtJ6AmdCLP7Lg" },
+      { name: "Sky News",    channel: "UCoMdktPbSTixAyNGwb-UYkQ" },
+      { name: "Al Jazeera",  channel: "UCNye-wNBqNL5ZzHSJj3l8Bg" },
+      { name: "France 24",   channel: "UCQfwfsi5VrQ8yKZ-UWmAEFg" },
+      { name: "DW News",     channel: "UCknLrEdhRCp1aegoMqRaCZg" },
     ];
 
     // State
     let currentLayout = "2x3";
-    let muteStates = {};   // index -> boolean (true = muted)
-    let players = {};      // index -> YT.Player
+    let muteStates = {};
+    let players = {};
 
     // Load YouTube IFrame API
     const tag = document.createElement("script");
@@ -235,6 +307,22 @@
 
     const LAYOUT_COUNTS = { "2x2": 4, "2x3": 6, "3x3": 9, "1plus": 3 };
 
+    function embedUrl(channelId, muted) {
+      // Use youtube-nocookie.com to avoid referrer/cookie issues
+      // The live_stream?channel= endpoint resolves to the channel's active live broadcast
+      const params = new URLSearchParams({
+        channel: channelId,
+        autoplay: "1",
+        mute: muted ? "1" : "0",
+        controls: "0",
+        rel: "0",
+        playsinline: "1",
+        enablejsapi: "1",
+        origin: window.location.origin,
+      });
+      return `https://www.youtube-nocookie.com/embed/live_stream?${params}`;
+    }
+
     function buildGrid() {
       const grid = document.getElementById("grid");
       grid.className = `grid-${currentLayout}`;
@@ -254,13 +342,12 @@
         panel.className = "panel";
         panel.dataset.index = i;
 
-        // Use an iframe that loads the channel's live page
-        // YouTube's /embed/live_stream?channel= auto-resolves to current live
         const iframe = document.createElement("iframe");
         iframe.id = `iframe-${i}`;
         iframe.allow = "autoplay; encrypted-media";
         iframe.setAttribute("allowfullscreen", "");
-        iframe.src = `https://www.youtube.com/embed/live_stream?channel=${source.channelId}&autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&playsinline=1&enablejsapi=1`;
+        iframe.setAttribute("referrerpolicy", "origin");
+        iframe.src = embedUrl(source.channel, muteStates[i]);
 
         const label = document.createElement("div");
         label.className = "panel-label";
@@ -275,31 +362,44 @@
         panel.appendChild(label);
         grid.appendChild(panel);
 
-        // Also create a YT.Player wrapper on the iframe for mute control
+        // Wrap iframe with YT Player API for mute/unmute control
         whenYTReady(() => {
           try {
             players[i] = new YT.Player(`iframe-${i}`, {
               events: {
                 onReady: function(event) {
-                  event.target.mute();
+                  if (muteStates[i]) event.target.mute();
                   event.target.playVideo();
+                },
+                onError: function(event) {
+                  // Error 150/101 = embedding restricted, 153 = referrer issue
+                  // Try reloading with standard youtube.com as fallback
+                  const iframe = document.getElementById(`iframe-${i}`);
+                  if (iframe && !iframe.dataset.retried) {
+                    iframe.dataset.retried = "1";
+                    const params = new URLSearchParams({
+                      channel: source.channel,
+                      autoplay: "1",
+                      mute: "1",
+                      controls: "0",
+                      rel: "0",
+                      playsinline: "1",
+                    });
+                    iframe.src = `https://www.youtube.com/embed/live_stream?${params}`;
+                  }
                 }
               }
             });
-          } catch(e) {
-            // Fallback: player wrapping may fail, mute controls will reload iframe
-          }
+          } catch(e) {}
         });
       });
     }
 
-    // Toggle mute for a single panel
     function toggleMute(index, btnEl) {
       const player = players[index];
       const isMuted = muteStates[index];
 
       if (player && typeof player.isMuted === "function") {
-        // Use YT API
         if (isMuted) {
           player.unMute();
           muteStates[index] = false;
@@ -311,9 +411,8 @@
         // Fallback: reload iframe with toggled mute param
         const source = NEWS_SOURCES[index];
         const iframe = document.getElementById(`iframe-${index}`);
-        const newMute = isMuted ? 0 : 1;
         muteStates[index] = !isMuted;
-        iframe.src = `https://www.youtube.com/embed/live_stream?channel=${source.channelId}&autoplay=1&mute=${newMute}&controls=0&modestbranding=1&rel=0&playsinline=1&enablejsapi=1`;
+        iframe.src = embedUrl(source.channel, muteStates[index]);
       }
 
       updateMuteButton(btnEl, muteStates[index]);
@@ -325,13 +424,6 @@
         const player = players[i];
         if (player && typeof player.mute === "function") {
           player.mute();
-        } else {
-          // Fallback: reload iframe muted
-          const source = NEWS_SOURCES[i];
-          const iframe = document.getElementById(`iframe-${i}`);
-          if (iframe && source) {
-            iframe.src = `https://www.youtube.com/embed/live_stream?channel=${source.channelId}&autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&playsinline=1&enablejsapi=1`;
-          }
         }
         muteStates[i] = true;
       }
@@ -344,12 +436,6 @@
         const player = players[i];
         if (player && typeof player.unMute === "function") {
           player.unMute();
-        } else {
-          const source = NEWS_SOURCES[i];
-          const iframe = document.getElementById(`iframe-${i}`);
-          if (iframe && source) {
-            iframe.src = `https://www.youtube.com/embed/live_stream?channel=${source.channelId}&autoplay=1&mute=0&controls=0&modestbranding=1&rel=0&playsinline=1&enablejsapi=1`;
-          }
         }
         muteStates[i] = false;
       }
@@ -369,7 +455,6 @@
       });
     }
 
-    // SVG icons
     function muteOnSVG() {
       return '<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>';
     }
@@ -388,7 +473,6 @@
       });
     });
 
-    // Set default active
     document.querySelector('[data-layout="2x3"]').classList.add("active");
 
     // Keyboard shortcuts: M = mute all, U = unmute all
@@ -397,8 +481,12 @@
       if (e.key === "u" || e.key === "U") unmuteAll();
     });
 
-    // Init
-    buildGrid();
+    // Start wall after user click (required for Safari autoplay policy)
+    function startWall() {
+      document.getElementById("startup-overlay").classList.add("hidden");
+      document.getElementById("toolbar").style.display = "flex";
+      buildGrid();
+    }
   </script>
 </body>
 </html>
