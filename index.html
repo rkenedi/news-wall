@@ -83,6 +83,13 @@
       justify-content: center;
     }
 
+    .divider {
+      width: 1px;
+      height: 24px;
+      background: var(--border);
+      margin: 0 4px;
+    }
+
     /* Grid */
     #grid {
       display: grid;
@@ -94,7 +101,7 @@
     .grid-2x2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
     .grid-2x3 { grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; }
     .grid-3x3 { grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr 1fr; }
-    .grid-1plus { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+    .grid-1plus { grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; }
     .grid-1plus .panel:first-child { grid-row: 1 / -1; }
 
     /* Panel */
@@ -110,7 +117,7 @@
       border: none;
     }
 
-    /* Panel overlay label */
+    /* Panel overlay label + mute button */
     .panel-label {
       position: absolute;
       bottom: 0;
@@ -119,7 +126,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 6px 10px;
+      padding: 8px 12px;
       background: linear-gradient(transparent, rgba(0,0,0,0.85));
       opacity: 0;
       transition: opacity 0.2s;
@@ -128,7 +135,7 @@
 
     .panel:hover .panel-label { opacity: 1; pointer-events: auto; }
 
-    .panel-label span {
+    .panel-label .label-name {
       font-size: 12px;
       font-weight: 600;
       text-transform: uppercase;
@@ -145,60 +152,13 @@
       align-items: center;
       justify-content: center;
       transition: background 0.15s;
+      flex-shrink: 0;
     }
 
     .mute-btn svg { width: 16px; height: 16px; fill: white; }
 
     .mute-btn.muted { background: var(--muted-color); }
     .mute-btn.unmuted { background: var(--unmuted-color); }
-
-    /* Loading placeholder */
-    .panel-loading {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      background: var(--panel-bg);
-      z-index: 1;
-      transition: opacity 0.3s;
-    }
-
-    .panel-loading.hidden { opacity: 0; pointer-events: none; }
-
-    .spinner {
-      width: 24px;
-      height: 24px;
-      border: 2px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .panel-loading span { font-size: 12px; color: var(--text-dim); }
-
-    /* Fullscreen hint */
-    #fullscreen-hint {
-      display: none;
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 8px 16px;
-      background: rgba(0,0,0,0.8);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: 12px;
-      color: var(--text-dim);
-      z-index: 200;
-      animation: fadeOut 3s forwards;
-    }
-
-    @keyframes fadeOut { 0%,70% { opacity: 1; } 100% { opacity: 0; } }
   </style>
 </head>
 <body>
@@ -206,7 +166,6 @@
   <div id="toolbar">
     <h1>NEWS WALL</h1>
     <div class="toolbar-controls">
-      <!-- Layout buttons -->
       <button class="btn layout-btn" data-layout="2x2" title="2x2 Grid">
         <svg viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
       </button>
@@ -220,9 +179,8 @@
         <svg viewBox="0 0 16 16"><rect x="1" y="1" width="8" height="14" rx="1"/><rect x="11" y="1" width="4" height="6" rx="1"/><rect x="11" y="9" width="4" height="6" rx="1"/></svg>
       </button>
 
-      <div style="width:1px;height:24px;background:var(--border);margin:0 4px"></div>
+      <div class="divider"></div>
 
-      <!-- Mute all / Unmute all -->
       <button class="btn" id="mute-all-btn" onclick="muteAll()">
         <svg viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
         Mute All
@@ -231,38 +189,30 @@
         <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
         Unmute All
       </button>
-
-      <div style="width:1px;height:24px;background:var(--border);margin:0 4px"></div>
-
-      <button class="btn" onclick="toggleFullscreen()">
-        <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
-        Fullscreen
-      </button>
     </div>
   </div>
 
   <div id="grid" class="grid-2x3"></div>
 
   <script>
-    // YouTube live stream channel IDs / known live stream video IDs
-    // We use channel-based embeds where possible for 24/7 live streams
+    // News sources using YouTube channel IDs for live stream auto-resolution
+    // The /live URL automatically finds the current live broadcast for each channel
     const NEWS_SOURCES = [
-      { name: "ABC News",        videoId: "YBLREsKsKYY" },
-      { name: "NBC News",        videoId: "Bx0GpPJMgXE" },
-      { name: "CBS News",        videoId: "sB2eGhFxmgg" },
-      { name: "Fox News",        videoId: "bNvtS1sNOCk" },
-      { name: "Bloomberg",       videoId: "iyP5mQSLtck" },
-      { name: "Sky News",        videoId: "9Auq9mYxFEE" },
-      { name: "Al Jazeera",      videoId: "F-POY4Q0WOA" },
-      { name: "France 24",       videoId: "Ap-UM1O9RBk" },
-      { name: "DW News",         videoId: "GE_SfNVNyqk" },
+      { name: "ABC News",    channelId: "UCBi2mrWuNuyYy4gbM6fU18Q" },
+      { name: "NBC News",    channelId: "UCeY0bbntWzzVIaj2z3QigXg" },
+      { name: "CBS News",    channelId: "UC8p1vwvWtl6T73JiExfWs1g" },
+      { name: "Fox News",    channelId: "UCXIJgqnII2ZOINSWNOGFThA" },
+      { name: "Bloomberg",   channelId: "UCIALMKvObZNtJ6AmdCLP7Lg" },
+      { name: "Sky News",    channelId: "UCoMdktPbSTixAyNGwb-UYkQ" },
+      { name: "Al Jazeera",  channelId: "UCNye-wNBqNL5ZzHSJj3l8Bg" },
+      { name: "France 24",   channelId: "UCQfwfsi5VrQ8yKZ-UWmAEFg" },
+      { name: "DW News",     channelId: "UCknLrEdhRCp1aegoMqRaCZg" },
     ];
 
     // State
     let currentLayout = "2x3";
-    let panels = [];
-    let muteStates = {};  // videoId -> boolean (true = muted)
-    let players = {};     // videoId -> YT.Player
+    let muteStates = {};   // index -> boolean (true = muted)
+    let players = {};      // index -> YT.Player
 
     // Load YouTube IFrame API
     const tag = document.createElement("script");
@@ -270,155 +220,152 @@
     document.head.appendChild(tag);
 
     let ytReady = false;
-    let ytReadyCallbacks = [];
+    let ytReadyQueue = [];
 
     window.onYouTubeIframeAPIReady = function () {
       ytReady = true;
-      ytReadyCallbacks.forEach(cb => cb());
-      ytReadyCallbacks = [];
+      ytReadyQueue.forEach(cb => cb());
+      ytReadyQueue = [];
     };
 
     function whenYTReady(cb) {
       if (ytReady) cb();
-      else ytReadyCallbacks.push(cb);
+      else ytReadyQueue.push(cb);
     }
 
-    // How many panels for each layout
     const LAYOUT_COUNTS = { "2x2": 4, "2x3": 6, "3x3": 9, "1plus": 3 };
-
-    function getSourcesForLayout(layout) {
-      const count = LAYOUT_COUNTS[layout] || 6;
-      return NEWS_SOURCES.slice(0, count);
-    }
 
     function buildGrid() {
       const grid = document.getElementById("grid");
       grid.className = `grid-${currentLayout}`;
       grid.innerHTML = "";
+
+      // Destroy existing players
+      Object.values(players).forEach(p => { try { p.destroy(); } catch(e) {} });
       players = {};
 
-      const sources = getSourcesForLayout(currentLayout);
+      const count = LAYOUT_COUNTS[currentLayout] || 6;
+      const sources = NEWS_SOURCES.slice(0, count);
 
       sources.forEach((source, i) => {
-        // Init mute state if not set (default muted for Safari autoplay)
-        if (muteStates[source.videoId] === undefined) {
-          muteStates[source.videoId] = true;
-        }
+        if (muteStates[i] === undefined) muteStates[i] = true;
 
         const panel = document.createElement("div");
         panel.className = "panel";
-        panel.innerHTML = `
-          <div class="panel-loading" id="loading-${i}">
-            <div class="spinner"></div>
-            <span>Loading ${source.name}...</span>
-          </div>
-          <div id="player-${i}"></div>
-          <div class="panel-label">
-            <span>${source.name}</span>
-            <button class="mute-btn ${muteStates[source.videoId] ? 'muted' : 'unmuted'}"
-                    onclick="toggleMute('${source.videoId}', this)"
-                    title="${muteStates[source.videoId] ? 'Unmute' : 'Mute'}">
-              ${muteStates[source.videoId] ? muteOffSVG() : muteOnSVG()}
-            </button>
-          </div>
+        panel.dataset.index = i;
+
+        // Use an iframe that loads the channel's live page
+        // YouTube's /embed/live_stream?channel= auto-resolves to current live
+        const iframe = document.createElement("iframe");
+        iframe.id = `iframe-${i}`;
+        iframe.allow = "autoplay; encrypted-media";
+        iframe.setAttribute("allowfullscreen", "");
+        iframe.src = `https://www.youtube.com/embed/live_stream?channel=${source.channelId}&autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&playsinline=1&enablejsapi=1`;
+
+        const label = document.createElement("div");
+        label.className = "panel-label";
+        label.innerHTML = `
+          <span class="label-name">${source.name}</span>
+          <button class="mute-btn muted" data-index="${i}" onclick="toggleMute(${i}, this)" title="Unmute">
+            ${muteOffSVG()}
+          </button>
         `;
+
+        panel.appendChild(iframe);
+        panel.appendChild(label);
         grid.appendChild(panel);
 
+        // Also create a YT.Player wrapper on the iframe for mute control
         whenYTReady(() => {
-          players[source.videoId] = new YT.Player(`player-${i}`, {
-            videoId: source.videoId,
-            playerVars: {
-              autoplay: 1,
-              mute: 1,           // Must start muted for Safari autoplay policy
-              controls: 0,
-              modestbranding: 1,
-              rel: 0,
-              playsinline: 1,    // Critical for Safari / iOS
-              enablejsapi: 1,
-              origin: window.location.origin,
-            },
-            events: {
-              onReady: function (event) {
-                const loading = document.getElementById(`loading-${i}`);
-                if (loading) loading.classList.add("hidden");
-                event.target.playVideo();
-                // Apply saved mute state
-                if (muteStates[source.videoId]) {
+          try {
+            players[i] = new YT.Player(`iframe-${i}`, {
+              events: {
+                onReady: function(event) {
                   event.target.mute();
-                } else {
-                  event.target.unMute();
-                }
-              },
-              onError: function (event) {
-                const loading = document.getElementById(`loading-${i}`);
-                if (loading) {
-                  loading.innerHTML = `<span style="color:var(--muted-color)">Stream unavailable</span><span style="font-size:11px;color:var(--text-dim)">${source.name} - Error ${event.data}</span>`;
-                }
-              },
-              onStateChange: function (event) {
-                // If video ends or errors, try to restart
-                if (event.data === YT.PlayerState.ENDED) {
                   event.target.playVideo();
                 }
               }
-            }
-          });
+            });
+          } catch(e) {
+            // Fallback: player wrapping may fail, mute controls will reload iframe
+          }
         });
       });
     }
 
-    // Mute / Unmute
-    function toggleMute(videoId, btnEl) {
-      const player = players[videoId];
-      if (!player || !player.isMuted) return;
+    // Toggle mute for a single panel
+    function toggleMute(index, btnEl) {
+      const player = players[index];
+      const isMuted = muteStates[index];
 
-      if (player.isMuted()) {
-        player.unMute();
-        muteStates[videoId] = false;
-        btnEl.className = "mute-btn unmuted";
-        btnEl.title = "Mute";
-        btnEl.innerHTML = muteOnSVG();
+      if (player && typeof player.isMuted === "function") {
+        // Use YT API
+        if (isMuted) {
+          player.unMute();
+          muteStates[index] = false;
+        } else {
+          player.mute();
+          muteStates[index] = true;
+        }
       } else {
-        player.mute();
-        muteStates[videoId] = true;
-        btnEl.className = "mute-btn muted";
-        btnEl.title = "Unmute";
-        btnEl.innerHTML = muteOffSVG();
+        // Fallback: reload iframe with toggled mute param
+        const source = NEWS_SOURCES[index];
+        const iframe = document.getElementById(`iframe-${index}`);
+        const newMute = isMuted ? 0 : 1;
+        muteStates[index] = !isMuted;
+        iframe.src = `https://www.youtube.com/embed/live_stream?channel=${source.channelId}&autoplay=1&mute=${newMute}&controls=0&modestbranding=1&rel=0&playsinline=1&enablejsapi=1`;
       }
+
+      updateMuteButton(btnEl, muteStates[index]);
     }
 
     function muteAll() {
-      Object.keys(players).forEach(vid => {
-        const p = players[vid];
-        if (p && p.mute) {
-          p.mute();
-          muteStates[vid] = true;
+      const count = LAYOUT_COUNTS[currentLayout] || 6;
+      for (let i = 0; i < count; i++) {
+        const player = players[i];
+        if (player && typeof player.mute === "function") {
+          player.mute();
+        } else {
+          // Fallback: reload iframe muted
+          const source = NEWS_SOURCES[i];
+          const iframe = document.getElementById(`iframe-${i}`);
+          if (iframe && source) {
+            iframe.src = `https://www.youtube.com/embed/live_stream?channel=${source.channelId}&autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&playsinline=1&enablejsapi=1`;
+          }
         }
-      });
+        muteStates[i] = true;
+      }
       updateAllMuteButtons();
     }
 
     function unmuteAll() {
-      Object.keys(players).forEach(vid => {
-        const p = players[vid];
-        if (p && p.unMute) {
-          p.unMute();
-          muteStates[vid] = false;
+      const count = LAYOUT_COUNTS[currentLayout] || 6;
+      for (let i = 0; i < count; i++) {
+        const player = players[i];
+        if (player && typeof player.unMute === "function") {
+          player.unMute();
+        } else {
+          const source = NEWS_SOURCES[i];
+          const iframe = document.getElementById(`iframe-${i}`);
+          if (iframe && source) {
+            iframe.src = `https://www.youtube.com/embed/live_stream?channel=${source.channelId}&autoplay=1&mute=0&controls=0&modestbranding=1&rel=0&playsinline=1&enablejsapi=1`;
+          }
         }
-      });
+        muteStates[i] = false;
+      }
       updateAllMuteButtons();
+    }
+
+    function updateMuteButton(btn, muted) {
+      btn.className = `mute-btn ${muted ? 'muted' : 'unmuted'}`;
+      btn.title = muted ? "Unmute" : "Mute";
+      btn.innerHTML = muted ? muteOffSVG() : muteOnSVG();
     }
 
     function updateAllMuteButtons() {
       document.querySelectorAll(".mute-btn").forEach(btn => {
-        const panel = btn.closest(".panel");
-        const label = panel.querySelector(".panel-label span");
-        const source = NEWS_SOURCES.find(s => s.name === label.textContent);
-        if (!source) return;
-        const muted = muteStates[source.videoId];
-        btn.className = `mute-btn ${muted ? 'muted' : 'unmuted'}`;
-        btn.title = muted ? "Unmute" : "Mute";
-        btn.innerHTML = muted ? muteOffSVG() : muteOnSVG();
+        const idx = parseInt(btn.dataset.index);
+        updateMuteButton(btn, muteStates[idx]);
       });
     }
 
@@ -441,22 +388,11 @@
       });
     });
 
-    // Set default active layout button
+    // Set default active
     document.querySelector('[data-layout="2x3"]').classList.add("active");
 
-    // Fullscreen
-    function toggleFullscreen() {
-      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-        const el = document.documentElement;
-        (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
-      } else {
-        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-      }
-    }
-
-    // Keyboard shortcut: F for fullscreen, M for mute all
+    // Keyboard shortcuts: M = mute all, U = unmute all
     document.addEventListener("keydown", (e) => {
-      if (e.key === "f" || e.key === "F") toggleFullscreen();
       if (e.key === "m" || e.key === "M") muteAll();
       if (e.key === "u" || e.key === "U") unmuteAll();
     });
