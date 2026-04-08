@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>News Wall</title>
-  <!-- HLS.js for non-Safari browsers; Safari plays .m3u8 natively -->
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -36,50 +35,43 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      height: 44px;
+      height: 40px;
       padding: 0 16px;
       background: var(--toolbar);
       border-bottom: 1px solid var(--border);
     }
-
-    #toolbar h1 { font-size: 15px; font-weight: 600; letter-spacing: .5px; }
-
-    .toolbar-controls { display: flex; gap: 8px; align-items: center; }
+    #toolbar h1 { font-size: 14px; font-weight: 600; letter-spacing: .5px; }
+    .toolbar-controls { display: flex; gap: 6px; align-items: center; }
 
     .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 14px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      background: var(--panel-bg);
-      color: var(--text);
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 12px;
+      border: 1px solid var(--border); border-radius: 5px;
+      background: var(--panel-bg); color: var(--text);
+      font-size: 12px; font-weight: 500; cursor: pointer;
       transition: background .15s, border-color .15s;
     }
     .btn:hover { background: #1e1e1e; border-color: #444; }
     .btn.active { border-color: var(--accent); background: rgba(59,130,246,.12); }
-    .btn svg { width: 16px; height: 16px; fill: currentColor; }
+    .btn svg { width: 14px; height: 14px; fill: currentColor; }
 
     .icon-btn {
-      width: 34px; height: 34px; padding: 0;
+      width: 30px; height: 30px; padding: 0;
       display: inline-flex; align-items: center; justify-content: center;
     }
-    .divider { width: 1px; height: 24px; background: var(--border); margin: 0 4px; }
+    .divider { width: 1px; height: 20px; background: var(--border); margin: 0 3px; }
 
     /* ── Grid ── */
     #grid {
       display: grid;
-      height: calc(100vh - 44px);
+      height: calc(100vh - 40px);
       gap: 2px;
       background: var(--bg);
     }
-    .grid-2x2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
-    .grid-2x3 { grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; }
-    .grid-3x3 { grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr 1fr; }
+    .grid-2x2 { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); }
+    .grid-2x3 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); }
+    .grid-3x3 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
+    .grid-4x3 { grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(3, 1fr); }
     .grid-1plus { grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; }
     .grid-1plus .panel:first-child { grid-row: 1 / -1; }
 
@@ -92,70 +84,89 @@
       display: block;
     }
 
+    /* Caption styling — positioned at TOP so it doesn't cover chirons */
+    .panel video::cue {
+      background: rgba(0,0,0,.55);
+      color: #fff;
+      font-size: 0.7em;
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+      line-height: 1.3;
+      padding: 2px 4px;
+      border-radius: 2px;
+    }
+
+    /* Custom caption overlay (for tracks we reposition) */
+    .caption-overlay {
+      position: absolute;
+      top: 4px; left: 8px; right: 8px;
+      pointer-events: none;
+      z-index: 5;
+      text-align: center;
+    }
+    .caption-overlay span {
+      display: inline;
+      background: rgba(0,0,0,.6);
+      color: #fff;
+      font-size: 11px;
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+      line-height: 1.4;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
     /* loading / error state */
     .panel-status {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      background: var(--panel-bg);
-      pointer-events: none;
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 8px;
+      background: var(--panel-bg); pointer-events: none;
       transition: opacity .3s;
     }
     .panel-status.gone { opacity: 0; }
     .panel-status .status-name {
-      font-size: 13px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: .5px;
+      font-size: 12px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .5px;
     }
-    .panel-status .status-msg { font-size: 11px; color: var(--text-dim); }
+    .panel-status .status-msg { font-size: 10px; color: var(--text-dim); }
 
     .spinner {
-      width: 22px; height: 22px;
-      border: 2px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin .8s linear infinite;
+      width: 20px; height: 20px;
+      border: 2px solid var(--border); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin .8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── Overlay label (hover) ── */
+    /* ── Hover overlay ── */
     .panel-label {
       position: absolute;
       bottom: 0; left: 0; right: 0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 12px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 10px;
       background: linear-gradient(transparent, rgba(0,0,0,.85));
-      opacity: 0;
-      transition: opacity .2s;
-      pointer-events: none;
+      opacity: 0; transition: opacity .2s; pointer-events: none;
     }
     .panel:hover .panel-label { opacity: 1; pointer-events: auto; }
 
     .label-name {
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: .5px;
+      font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .5px;
     }
 
-    .mute-btn {
-      width: 30px; height: 30px;
+    .panel-btns { display: flex; gap: 6px; }
+
+    .ctrl-btn {
+      width: 26px; height: 26px;
       border: none; border-radius: 50%;
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      transition: background .15s;
-      flex-shrink: 0;
+      transition: background .15s; flex-shrink: 0;
     }
-    .mute-btn svg { width: 16px; height: 16px; fill: white; }
-    .mute-btn.is-muted   { background: var(--red); }
-    .mute-btn.is-unmuted { background: var(--green); }
+    .ctrl-btn svg { width: 14px; height: 14px; fill: white; }
+
+    .ctrl-btn.is-muted   { background: var(--red); }
+    .ctrl-btn.is-unmuted  { background: var(--green); }
+    .ctrl-btn.cc-off      { background: #555; }
+    .ctrl-btn.cc-on       { background: var(--accent); }
   </style>
 </head>
 <body>
@@ -163,15 +174,17 @@
 <div id="toolbar">
   <h1>NEWS WALL</h1>
   <div class="toolbar-controls">
-    <!-- Layout -->
-    <button class="btn icon-btn" data-layout="2x2" title="2×2">
+    <button class="btn icon-btn" data-layout="2x2" title="2x2">
       <svg viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
     </button>
-    <button class="btn icon-btn" data-layout="2x3" title="2×3">
-      <svg viewBox="0 0 16 16"><rect x="0.5" y="1" width="4.3" height="6" rx=".5"/><rect x="5.8" y="1" width="4.3" height="6" rx=".5"/><rect x="11.2" y="1" width="4.3" height="6" rx=".5"/><rect x="0.5" y="9" width="4.3" height="6" rx=".5"/><rect x="5.8" y="9" width="4.3" height="6" rx=".5"/><rect x="11.2" y="9" width="4.3" height="6" rx=".5"/></svg>
+    <button class="btn icon-btn" data-layout="2x3" title="2x3">
+      <svg viewBox="0 0 16 16"><rect x=".5" y="1" width="4.3" height="6" rx=".5"/><rect x="5.8" y="1" width="4.3" height="6" rx=".5"/><rect x="11.2" y="1" width="4.3" height="6" rx=".5"/><rect x=".5" y="9" width="4.3" height="6" rx=".5"/><rect x="5.8" y="9" width="4.3" height="6" rx=".5"/><rect x="11.2" y="9" width="4.3" height="6" rx=".5"/></svg>
     </button>
-    <button class="btn icon-btn" data-layout="3x3" title="3×3">
+    <button class="btn icon-btn" data-layout="3x3" title="3x3">
       <svg viewBox="0 0 16 16"><rect x=".5" y=".5" width="4" height="4" rx=".5"/><rect x="6" y=".5" width="4" height="4" rx=".5"/><rect x="11.5" y=".5" width="4" height="4" rx=".5"/><rect x=".5" y="6" width="4" height="4" rx=".5"/><rect x="6" y="6" width="4" height="4" rx=".5"/><rect x="11.5" y="6" width="4" height="4" rx=".5"/><rect x=".5" y="11.5" width="4" height="4" rx=".5"/><rect x="6" y="11.5" width="4" height="4" rx=".5"/><rect x="11.5" y="11.5" width="4" height="4" rx=".5"/></svg>
+    </button>
+    <button class="btn icon-btn" data-layout="4x3" title="4x3">
+      <svg viewBox="0 0 16 16"><rect x=".3" y=".5" width="3.2" height="4" rx=".4"/><rect x="4.3" y=".5" width="3.2" height="4" rx=".4"/><rect x="8.3" y=".5" width="3.2" height="4" rx=".4"/><rect x="12.3" y=".5" width="3.2" height="4" rx=".4"/><rect x=".3" y="5.8" width="3.2" height="4" rx=".4"/><rect x="4.3" y="5.8" width="3.2" height="4" rx=".4"/><rect x="8.3" y="5.8" width="3.2" height="4" rx=".4"/><rect x="12.3" y="5.8" width="3.2" height="4" rx=".4"/><rect x=".3" y="11.2" width="3.2" height="4" rx=".4"/><rect x="4.3" y="11.2" width="3.2" height="4" rx=".4"/><rect x="8.3" y="11.2" width="3.2" height="4" rx=".4"/><rect x="12.3" y="11.2" width="3.2" height="4" rx=".4"/></svg>
     </button>
     <button class="btn icon-btn" data-layout="1plus" title="Focus">
       <svg viewBox="0 0 16 16"><rect x="1" y="1" width="8" height="14" rx="1"/><rect x="11" y="1" width="4" height="6" rx="1"/><rect x="11" y="9" width="4" height="6" rx="1"/></svg>
@@ -183,63 +196,100 @@
       <svg viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
       Mute All
     </button>
-    <button class="btn" onclick="unmuteAll()">
-      <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-      Unmute All
-    </button>
   </div>
 </div>
 
-<div id="grid" class="grid-2x3"></div>
+<div id="grid" class="grid-4x3"></div>
 
 <script>
-// ── Stream sources ────────────────────────────────────────────────────────────
-// Direct HLS streams from news networks' own CDNs — no YouTube, no error 153.
-// Each source can have fallback URLs tried in order.
+// ── Sources ───────────────────────────────────────────────────────────────────
+// Direct HLS streams — no YouTube dependency. Fallback URLs tried in order.
 const SOURCES = [
   {
     name: "Al Jazeera",
-    urls: ["https://live-hls-apps-aje-fa.getaj.net/AJE/index.m3u8"],
+    urls: [
+      "https://live-hls-apps-aje-fa.getaj.net/AJE/index.m3u8",
+    ],
   },
   {
     name: "France 24",
-    urls: ["https://amg00106-france24-france24-samsunguk-qvpp8.amagi.tv/playlist/amg00106-france24-france24-samsunguk/playlist.m3u8"],
+    urls: [
+      "https://amg00106-france24-france24-samsunguk-qvpp8.amagi.tv/playlist/amg00106-france24-france24-samsunguk/playlist.m3u8",
+    ],
   },
   {
     name: "DW News",
-    urls: ["https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/master.m3u8"],
+    urls: [
+      "https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/master.m3u8",
+      "https://dwstream4-lh.akamaihd.net/i/dwstream4_live@131329/master.m3u8",
+    ],
   },
   {
     name: "TRT World",
-    urls: ["https://tv-trtworld.medya.trt.com.tr/master.m3u8"],
+    urls: [
+      "https://tv-trtworld.medya.trt.com.tr/master.m3u8",
+      "https://trtcanlitv-lh.akamaihd.net/i/TRTWORLD_1@321783/master.m3u8",
+    ],
   },
   {
     name: "NHK World",
-    urls: ["https://media-tyo.hls.nhkworld.jp/hls/w/live/master.m3u8"],
+    urls: [
+      "https://media-tyo.hls.nhkworld.jp/hls/w/live/master.m3u8",
+      "https://nhkworld.webcdn.stream.ne.jp/www11/nhkworld-tv/global/263941/live_wa_s.m3u8",
+    ],
   },
   {
     name: "Euronews",
-    urls: ["https://a-cdn.klowdtv.com/live3/euronews_720p/playlist.m3u8"],
+    urls: [
+      "https://a-cdn.klowdtv.com/live3/euronews_720p/playlist.m3u8",
+    ],
   },
   {
-    name: "CBC News",
-    urls: ["https://cbcrczi.akamaized.net/hls/live/2044876/cbcnewsnetwork/master.m3u8"],
+    name: "MS NOW",
+    urls: [
+      "https://llnw.stream.msnbc.com/live/MSNBC398a080a-ua/master.m3u8",
+    ],
   },
   {
     name: "WION",
-    urls: ["https://d7x8z4yuq42qn.cloudfront.net/index_7.m3u8"],
+    urls: [
+      "https://d7x8z4yuq42qn.cloudfront.net/index_7.m3u8",
+    ],
   },
   {
-    name: "Africanews",
-    urls: ["https://d35j504z0x2vu2.cloudfront.net/v1/master/0bc8e8376bd8417a1b6761138aa41c26c7309312/africanews/africanews-en.m3u8"],
+    name: "Arirang",
+    urls: [
+      "https://amdlive-ch02-ctnd-com.akamaized.net/arirang_2ch/smil:arirang_2ch.smil/playlist.m3u8",
+      "https://amdlive-ch01.ctnd.com.edgesuite.net/arirang_1ch/smil:arirang_1ch.smil/playlist.m3u8",
+    ],
+  },
+  {
+    name: "NDTV 24x7",
+    urls: [
+      "https://ndtv24x7elemarchana.akamaized.net/hls/live/2003678/ndtv24x7/ndtv24x7master.m3u8",
+    ],
+  },
+  {
+    name: "CNA",
+    urls: [
+      "https://mediacorp-videosbclive.akamaized.net/dd724cfb0e8e4cdc921bbc4ac94614bf/ap-southeast-1/6057994443001/playlist.m3u8",
+    ],
+  },
+  {
+    name: "ABC Australia",
+    urls: [
+      "https://abc-iview-mediapackagestreams-2.akamaized.net/out/v1/6e1cc6d25ec0480ea099a5399d73bc4b/index.m3u8",
+      "https://abc-iview-mediapackagestreams-1.akamaized.net/out/v1/50345bf35f664739912f0b255c172ae9/index.m3u8",
+    ],
   },
 ];
 
 // ── State ─────────────────────────────────────────────────────────────────────
-const LAYOUT_COUNTS = { "2x2": 4, "2x3": 6, "3x3": 9, "1plus": 3 };
-let currentLayout = "2x3";
-let muteStates = {};    // index → bool
-let hlsInstances = {};  // index → Hls instance (non-Safari)
+const LAYOUT_COUNTS = { "2x2": 4, "2x3": 6, "3x3": 9, "4x3": 12, "1plus": 3 };
+let currentLayout = "4x3";
+let muteStates = {};
+let ccStates = {};      // index → bool
+let hlsInstances = {};
 
 // ── Grid builder ──────────────────────────────────────────────────────────────
 function buildGrid() {
@@ -247,13 +297,13 @@ function buildGrid() {
   grid.className = `grid-${currentLayout}`;
   grid.innerHTML = "";
 
-  // Destroy old HLS instances
-  Object.values(hlsInstances).forEach(h => h.destroy());
+  Object.values(hlsInstances).forEach(h => { try { h.destroy(); } catch(e){} });
   hlsInstances = {};
 
-  const count = LAYOUT_COUNTS[currentLayout] || 6;
+  const count = LAYOUT_COUNTS[currentLayout] || 12;
   SOURCES.slice(0, count).forEach((src, i) => {
     if (muteStates[i] === undefined) muteStates[i] = true;
+    if (ccStates[i] === undefined) ccStates[i] = false;
     grid.appendChild(makePanel(src, i));
     loadStream(i, src.urls, 0);
   });
@@ -262,67 +312,68 @@ function buildGrid() {
 function makePanel(src, i) {
   const panel = document.createElement("div");
   panel.className = "panel";
-
-  // Status overlay (shown while loading)
   panel.innerHTML = `
     <div class="panel-status" id="status-${i}">
       <div class="spinner"></div>
       <span class="status-name">${src.name}</span>
-      <span class="status-msg" id="status-msg-${i}">Connecting…</span>
+      <span class="status-msg" id="status-msg-${i}">Connecting</span>
     </div>
     <video id="video-${i}" autoplay muted playsinline></video>
+    <div class="caption-overlay" id="captions-${i}"></div>
     <div class="panel-label">
       <span class="label-name">${src.name}</span>
-      <button class="mute-btn is-muted" data-index="${i}"
-              onclick="toggleMute(${i},this)" title="Unmute">
-        ${svgMuteOff()}
-      </button>
+      <div class="panel-btns">
+        <button class="ctrl-btn cc-off" data-index="${i}" data-role="cc"
+                onclick="toggleCC(${i},this)" title="Closed Captions">
+          <svg viewBox="0 0 24 24"><path d="M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-8 7H9.5v-.5h-2v3h2V13H11v1a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1zm7 0h-1.5v-.5h-2v3h2V13H18v1a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1z"/></svg>
+        </button>
+        <button class="ctrl-btn is-muted" data-index="${i}" data-role="mute"
+                onclick="toggleMute(${i},this)" title="Unmute">
+          ${svgMuteOff()}
+        </button>
+      </div>
     </div>
   `;
   return panel;
 }
 
-// ── Stream loader (with fallback chain) ───────────────────────────────────────
+// ── Stream loader ─────────────────────────────────────────────────────────────
 function loadStream(i, urls, urlIdx) {
-  if (urlIdx >= urls.length) {
-    showError(i, "Stream unavailable");
-    return;
-  }
+  if (urlIdx >= urls.length) { showError(i, "Stream unavailable"); return; }
 
   const url = urls[urlIdx];
   const video = document.getElementById(`video-${i}`);
   if (!video) return;
-
   video.muted = muteStates[i];
 
   const tryNext = () => loadStream(i, urls, urlIdx + 1);
 
-  // Safari: native HLS support
+  // Safari: native HLS
   if (video.canPlayType("application/vnd.apple.mpegurl")) {
     video.src = url;
-    video.addEventListener("canplay", () => hideStatus(i), { once: true });
+    video.addEventListener("canplay", () => {
+      hideStatus(i);
+      setupCaptionTracks(i, video);
+    }, { once: true });
     video.addEventListener("error", tryNext, { once: true });
     video.play().catch(() => {});
     return;
   }
 
-  // Other browsers: use HLS.js
-  if (Hls.isSupported()) {
-    const hls = new Hls({ lowLatencyMode: true });
+  // HLS.js
+  if (typeof Hls !== "undefined" && Hls.isSupported()) {
+    const hls = new Hls({ lowLatencyMode: true, enableCEA708Captions: true });
     hlsInstances[i] = hls;
     hls.loadSource(url);
     hls.attachMedia(video);
-    hls.on(Hls.Events.MANIFEST_PARSED, () => {
-      video.play().catch(() => {});
-    });
+    hls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(() => {}); });
     hls.on(Hls.Events.ERROR, (_, data) => {
-      if (data.fatal) {
-        hls.destroy();
-        delete hlsInstances[i];
-        tryNext();
-      }
+      if (data.fatal) { hls.destroy(); delete hlsInstances[i]; tryNext(); }
     });
-    video.addEventListener("canplay", () => hideStatus(i), { once: true });
+    video.addEventListener("canplay", () => {
+      hideStatus(i);
+      setupCaptionTracks(i, video);
+    }, { once: true });
   } else {
     showError(i, "HLS not supported");
   }
@@ -332,12 +383,76 @@ function hideStatus(i) {
   const el = document.getElementById(`status-${i}`);
   if (el) el.classList.add("gone");
 }
-
 function showError(i, msg) {
   const el = document.getElementById(`status-${i}`);
   const msgEl = document.getElementById(`status-msg-${i}`);
-  if (el) { el.querySelector(".spinner").style.display = "none"; }
+  if (el) { const s = el.querySelector(".spinner"); if (s) s.style.display = "none"; }
   if (msgEl) msgEl.textContent = msg;
+}
+
+// ── Closed captions ───────────────────────────────────────────────────────────
+function setupCaptionTracks(i, video) {
+  // Disable all tracks by default; we'll render manually to position at top
+  for (let t = 0; t < video.textTracks.length; t++) {
+    video.textTracks[t].mode = "hidden";
+  }
+}
+
+function toggleCC(i, btn) {
+  ccStates[i] = !ccStates[i];
+  btn.className = `ctrl-btn ${ccStates[i] ? "cc-on" : "cc-off"}`;
+  btn.title = ccStates[i] ? "CC On" : "Closed Captions";
+
+  const video = document.getElementById(`video-${i}`);
+  const overlay = document.getElementById(`captions-${i}`);
+  if (!video) return;
+
+  if (ccStates[i]) {
+    // Try to find and enable a text track
+    let found = false;
+    for (let t = 0; t < video.textTracks.length; t++) {
+      const track = video.textTracks[t];
+      if (track.kind === "captions" || track.kind === "subtitles") {
+        track.mode = "hidden"; // hidden so we render manually at top
+        track.oncuechange = () => renderCaptions(i, track, overlay);
+        found = true;
+        break;
+      }
+    }
+    // If no dedicated caption track, try any track
+    if (!found && video.textTracks.length > 0) {
+      const track = video.textTracks[0];
+      track.mode = "hidden";
+      track.oncuechange = () => renderCaptions(i, track, overlay);
+      found = true;
+    }
+    if (!found) {
+      overlay.innerHTML = '<span style="opacity:.6;font-style:italic">No captions available</span>';
+      setTimeout(() => { if (overlay) overlay.innerHTML = ""; }, 3000);
+    }
+  } else {
+    // Disable
+    for (let t = 0; t < video.textTracks.length; t++) {
+      video.textTracks[t].mode = "disabled";
+      video.textTracks[t].oncuechange = null;
+    }
+    if (overlay) overlay.innerHTML = "";
+  }
+}
+
+function renderCaptions(i, track, overlay) {
+  if (!ccStates[i] || !overlay) return;
+  if (!track.activeCues || track.activeCues.length === 0) {
+    overlay.innerHTML = "";
+    return;
+  }
+  let text = "";
+  for (let c = 0; c < track.activeCues.length; c++) {
+    text += track.activeCues[c].text + " ";
+  }
+  // Strip HTML tags that VTT might contain
+  text = text.replace(/<[^>]*>/g, "").trim();
+  overlay.innerHTML = text ? `<span>${text}</span>` : "";
 }
 
 // ── Mute controls ─────────────────────────────────────────────────────────────
@@ -346,31 +461,23 @@ function toggleMute(i, btn) {
   if (!video) return;
   muteStates[i] = !muteStates[i];
   video.muted = muteStates[i];
-  refreshBtn(btn, muteStates[i]);
+  refreshMuteBtn(btn, muteStates[i]);
 }
 
 function muteAll() {
-  setAllMute(true);
-}
-
-function unmuteAll() {
-  setAllMute(false);
-}
-
-function setAllMute(muted) {
-  const count = LAYOUT_COUNTS[currentLayout] || 6;
+  const count = LAYOUT_COUNTS[currentLayout] || 12;
   for (let i = 0; i < count; i++) {
-    muteStates[i] = muted;
+    muteStates[i] = true;
     const v = document.getElementById(`video-${i}`);
-    if (v) v.muted = muted;
+    if (v) v.muted = true;
   }
-  document.querySelectorAll(".mute-btn").forEach(btn => {
-    refreshBtn(btn, muted);
+  document.querySelectorAll('[data-role="mute"]').forEach(btn => {
+    refreshMuteBtn(btn, true);
   });
 }
 
-function refreshBtn(btn, muted) {
-  btn.className = `mute-btn ${muted ? "is-muted" : "is-unmuted"}`;
+function refreshMuteBtn(btn, muted) {
+  btn.className = `ctrl-btn ${muted ? "is-muted" : "is-unmuted"}`;
   btn.title = muted ? "Unmute" : "Mute";
   btn.innerHTML = muted ? svgMuteOff() : svgMuteOn();
 }
@@ -392,12 +499,11 @@ document.querySelectorAll("[data-layout]").forEach(btn => {
     buildGrid();
   });
 });
-document.querySelector('[data-layout="2x3"]').classList.add("active");
+document.querySelector('[data-layout="4x3"]').classList.add("active");
 
-// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+// Keyboard: M = mute all
 document.addEventListener("keydown", e => {
   if (e.key === "m" || e.key === "M") muteAll();
-  if (e.key === "u" || e.key === "U") unmuteAll();
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
