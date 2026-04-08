@@ -80,7 +80,8 @@
 
     .panel video {
       width: 100%; height: 100%;
-      object-fit: cover;
+      object-fit: contain;
+      background: #000;
       display: block;
     }
 
@@ -167,6 +168,24 @@
     .ctrl-btn.is-unmuted  { background: var(--green); }
     .ctrl-btn.cc-off      { background: #555; }
     .ctrl-btn.cc-on       { background: var(--accent); }
+    .ctrl-btn.cc-unavailable {
+      background: #3a3a3a;
+      opacity: .75;
+      position: relative;
+      cursor: not-allowed;
+    }
+    .ctrl-btn.cc-unavailable::after {
+      content: "";
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      top: 12px;
+      height: 2px;
+      background: rgba(255,255,255,.95);
+      transform: rotate(-32deg);
+      border-radius: 2px;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
@@ -206,9 +225,30 @@
 // Direct HLS streams — no YouTube dependency. Fallback URLs tried in order.
 const SOURCES = [
   {
+    name: "Global News",
+    urls: [
+      "https://live.corusdigitaldev.com/groupd/live/49a91e7f-1023-430f-8d66-561055f3d0f7/live.isml/.m3u8",
+    ],
+  },
+  {
     name: "Al Jazeera",
     urls: [
       "https://live-hls-apps-aje-fa.getaj.net/AJE/index.m3u8",
+    ],
+  },
+  {
+    name: "MS NOW",
+    urls: [
+      "http://41.205.93.154/MSNBC/index.m3u8",
+      "https://d1bl6tskrpq9ze.cloudfront.net/hls/master.m3u8?ads.xumo_channelId=99984003",
+      "https://llnw.stream.msnbc.com/live/MSNBC398a080a-ua/master.m3u8",
+    ],
+  },
+  {
+    name: "Bloomberg",
+    urls: [
+      "https://www.bloomberg.com/media-manifest/streams/phoenix-us.m3u8",
+      "https://liveproduseast.global.ssl.fastly.net/us/Channel-USTV-AWS-virginia-1/Source-USTV-1000-1_live.m3u8",
     ],
   },
   {
@@ -245,12 +285,6 @@ const SOURCES = [
     ],
   },
   {
-    name: "MS NOW",
-    urls: [
-      "https://llnw.stream.msnbc.com/live/MSNBC398a080a-ua/master.m3u8",
-    ],
-  },
-  {
     name: "WION",
     urls: [
       "https://d7x8z4yuq42qn.cloudfront.net/index_7.m3u8",
@@ -267,19 +301,6 @@ const SOURCES = [
     name: "NDTV 24x7",
     urls: [
       "https://ndtv24x7elemarchana.akamaized.net/hls/live/2003678/ndtv24x7/ndtv24x7master.m3u8",
-    ],
-  },
-  {
-    name: "CNA",
-    urls: [
-      "https://mediacorp-videosbclive.akamaized.net/dd724cfb0e8e4cdc921bbc4ac94614bf/ap-southeast-1/6057994443001/playlist.m3u8",
-    ],
-  },
-  {
-    name: "ABC Australia",
-    urls: [
-      "https://abc-iview-mediapackagestreams-2.akamaized.net/out/v1/6e1cc6d25ec0480ea099a5399d73bc4b/index.m3u8",
-      "https://abc-iview-mediapackagestreams-1.akamaized.net/out/v1/50345bf35f664739912f0b255c172ae9/index.m3u8",
     ],
   },
 ];
@@ -323,8 +344,8 @@ function makePanel(src, i) {
     <div class="panel-label">
       <span class="label-name">${src.name}</span>
       <div class="panel-btns">
-        <button class="ctrl-btn cc-off" data-index="${i}" data-role="cc"
-                onclick="toggleCC(${i},this)" title="Closed Captions">
+        <button class="ctrl-btn cc-off cc-unavailable" data-index="${i}" data-role="cc"
+                onclick="toggleCC(${i},this)" title="Checking captions..." disabled>
           <svg viewBox="0 0 24 24"><path d="M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-8 7H9.5v-.5h-2v3h2V13H11v1a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1zm7 0h-1.5v-.5h-2v3h2V13H18v1a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1z"/></svg>
         </button>
         <button class="ctrl-btn is-muted" data-index="${i}" data-role="mute"
@@ -345,6 +366,7 @@ function loadStream(i, urls, urlIdx) {
   const video = document.getElementById(`video-${i}`);
   if (!video) return;
   video.muted = muteStates[i];
+  attachCaptionWatchers(i, video);
 
   const tryNext = () => loadStream(i, urls, urlIdx + 1);
 
@@ -396,9 +418,76 @@ function setupCaptionTracks(i, video) {
   for (let t = 0; t < video.textTracks.length; t++) {
     video.textTracks[t].mode = "hidden";
   }
+  updateCCAvailability(i, video);
+  if (ccStates[i]) enableCaptionsForPanel(i);
+}
+
+function attachCaptionWatchers(i, video) {
+  if (video.dataset.ccWatchAttached === "1") return;
+  video.dataset.ccWatchAttached = "1";
+
+  const onTrackUpdate = () => {
+    updateCCAvailability(i, video);
+    if (ccStates[i]) enableCaptionsForPanel(i);
+  };
+
+  video.addEventListener("loadedmetadata", onTrackUpdate);
+  if (video.textTracks && video.textTracks.addEventListener) {
+    video.textTracks.addEventListener("addtrack", onTrackUpdate);
+  }
+}
+
+function pickCaptionTrack(video) {
+  // Prefer explicit captions/subtitles tracks if present
+  for (let t = 0; t < video.textTracks.length; t++) {
+    const track = video.textTracks[t];
+    if (track.kind === "captions" || track.kind === "subtitles") return track;
+  }
+  return video.textTracks.length > 0 ? video.textTracks[0] : null;
+}
+
+function updateCCAvailability(i, video) {
+  const btn = document.querySelector(`[data-role="cc"][data-index="${i}"]`);
+  if (!btn || !video) return;
+  const track = pickCaptionTrack(video);
+
+  if (track) {
+    btn.disabled = false;
+    btn.classList.remove("cc-unavailable");
+    btn.title = ccStates[i] ? "CC On" : "Closed Captions";
+    return;
+  }
+
+  ccStates[i] = false;
+  btn.disabled = true;
+  btn.className = "ctrl-btn cc-off cc-unavailable";
+  btn.title = "CC unavailable";
+
+  const overlay = document.getElementById(`captions-${i}`);
+  if (overlay) overlay.innerHTML = "";
+}
+
+function bindTrackToOverlay(i, track, overlay) {
+  track.mode = "hidden";
+  track.oncuechange = () => renderCaptions(i, track, overlay);
+  renderCaptions(i, track, overlay);
+}
+
+function enableCaptionsForPanel(i) {
+  const video = document.getElementById(`video-${i}`);
+  const overlay = document.getElementById(`captions-${i}`);
+  if (!video || !overlay) return false;
+
+  const track = pickCaptionTrack(video);
+  if (!track) return false;
+
+  bindTrackToOverlay(i, track, overlay);
+  return true;
 }
 
 function toggleCC(i, btn) {
+  if (btn.disabled) return;
+
   ccStates[i] = !ccStates[i];
   btn.className = `ctrl-btn ${ccStates[i] ? "cc-on" : "cc-off"}`;
   btn.title = ccStates[i] ? "CC On" : "Closed Captions";
@@ -408,28 +497,23 @@ function toggleCC(i, btn) {
   if (!video) return;
 
   if (ccStates[i]) {
-    // Try to find and enable a text track
-    let found = false;
-    for (let t = 0; t < video.textTracks.length; t++) {
-      const track = video.textTracks[t];
-      if (track.kind === "captions" || track.kind === "subtitles") {
-        track.mode = "hidden"; // hidden so we render manually at top
-        track.oncuechange = () => renderCaptions(i, track, overlay);
-        found = true;
-        break;
+    if (enableCaptionsForPanel(i)) return;
+
+    // Some live streams expose tracks late; retry briefly before declaring failure.
+    overlay.innerHTML = '<span style="opacity:.6;font-style:italic">Looking for captions...</span>';
+    let tries = 0;
+    const retryTimer = setInterval(() => {
+      if (!ccStates[i]) { clearInterval(retryTimer); return; }
+      if (enableCaptionsForPanel(i)) { clearInterval(retryTimer); return; }
+      tries++;
+      if (tries >= 12) {
+        clearInterval(retryTimer);
+        if (ccStates[i]) {
+          overlay.innerHTML = '<span style="opacity:.6;font-style:italic">No captions on this feed</span>';
+          setTimeout(() => { if (ccStates[i] && overlay) overlay.innerHTML = ""; }, 3000);
+        }
       }
-    }
-    // If no dedicated caption track, try any track
-    if (!found && video.textTracks.length > 0) {
-      const track = video.textTracks[0];
-      track.mode = "hidden";
-      track.oncuechange = () => renderCaptions(i, track, overlay);
-      found = true;
-    }
-    if (!found) {
-      overlay.innerHTML = '<span style="opacity:.6;font-style:italic">No captions available</span>';
-      setTimeout(() => { if (overlay) overlay.innerHTML = ""; }, 3000);
-    }
+    }, 500);
   } else {
     // Disable
     for (let t = 0; t < video.textTracks.length; t++) {
