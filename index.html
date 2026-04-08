@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>News Wall</title>
+  <!-- HLS.js for non-Safari browsers; Safari plays .m3u8 natively -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -15,9 +16,9 @@
       --text: #e0e0e0;
       --text-dim: #888;
       --accent: #3b82f6;
-      --muted-color: #ef4444;
-      --unmuted-color: #22c55e;
-      --toolbar-bg: #111111;
+      --red: #ef4444;
+      --green: #22c55e;
+      --toolbar: #111;
     }
 
     html, body {
@@ -30,30 +31,20 @@
       user-select: none;
     }
 
-    /* Toolbar */
+    /* ── Toolbar ── */
     #toolbar {
       display: flex;
       align-items: center;
       justify-content: space-between;
       height: 44px;
       padding: 0 16px;
-      background: var(--toolbar-bg);
+      background: var(--toolbar);
       border-bottom: 1px solid var(--border);
-      z-index: 100;
     }
 
-    #toolbar h1 {
-      font-size: 15px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      color: var(--text);
-    }
+    #toolbar h1 { font-size: 15px; font-weight: 600; letter-spacing: .5px; }
 
-    .toolbar-controls {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
+    .toolbar-controls { display: flex; gap: 8px; align-items: center; }
 
     .btn {
       display: inline-flex;
@@ -67,426 +58,350 @@
       font-size: 13px;
       font-weight: 500;
       cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
+      transition: background .15s, border-color .15s;
     }
-
     .btn:hover { background: #1e1e1e; border-color: #444; }
-    .btn.active { border-color: var(--accent); background: rgba(59,130,246,0.12); }
-
+    .btn.active { border-color: var(--accent); background: rgba(59,130,246,.12); }
     .btn svg { width: 16px; height: 16px; fill: currentColor; }
 
-    .layout-btn {
-      width: 34px;
-      height: 34px;
-      padding: 0;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
+    .icon-btn {
+      width: 34px; height: 34px; padding: 0;
+      display: inline-flex; align-items: center; justify-content: center;
     }
+    .divider { width: 1px; height: 24px; background: var(--border); margin: 0 4px; }
 
-    .divider {
-      width: 1px;
-      height: 24px;
-      background: var(--border);
-      margin: 0 4px;
-    }
-
-    /* Grid */
+    /* ── Grid ── */
     #grid {
       display: grid;
       height: calc(100vh - 44px);
       gap: 2px;
       background: var(--bg);
     }
-
     .grid-2x2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
     .grid-2x3 { grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; }
     .grid-3x3 { grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr 1fr; }
     .grid-1plus { grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; }
     .grid-1plus .panel:first-child { grid-row: 1 / -1; }
 
-    /* Panel */
-    .panel {
-      position: relative;
-      background: var(--panel-bg);
-      overflow: hidden;
+    /* ── Panel ── */
+    .panel { position: relative; background: var(--panel-bg); overflow: hidden; }
+
+    .panel video {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
     }
 
-    .panel iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-
-    /* Panel overlay label + mute button */
-    .panel-label {
+    /* loading / error state */
+    .panel-status {
       position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 12px;
-      background: linear-gradient(transparent, rgba(0,0,0,0.85));
-      opacity: 0;
-      transition: opacity 0.2s;
-      pointer-events: none;
-    }
-
-    .panel:hover .panel-label { opacity: 1; pointer-events: auto; }
-
-    .panel-label .label-name {
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .mute-btn {
-      width: 30px;
-      height: 30px;
-      border: none;
-      border-radius: 50%;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.15s;
-      flex-shrink: 0;
-    }
-
-    .mute-btn svg { width: 16px; height: 16px; fill: white; }
-
-    .mute-btn.muted { background: var(--muted-color); }
-    .mute-btn.unmuted { background: var(--unmuted-color); }
-
-    /* Startup overlay */
-    #startup-overlay {
-      position: fixed;
       inset: 0;
-      background: var(--bg);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      z-index: 1000;
-      gap: 16px;
-      transition: opacity 0.4s;
-    }
-
-    #startup-overlay.hidden { opacity: 0; pointer-events: none; }
-
-    #startup-overlay h2 {
-      font-size: 20px;
-      font-weight: 600;
-    }
-
-    #startup-overlay p {
-      font-size: 14px;
-      color: var(--text-dim);
-      max-width: 480px;
-      text-align: center;
-      line-height: 1.6;
-    }
-
-    #startup-overlay code {
+      gap: 10px;
       background: var(--panel-bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 8px 16px;
+      pointer-events: none;
+      transition: opacity .3s;
+    }
+    .panel-status.gone { opacity: 0; }
+    .panel-status .status-name {
       font-size: 13px;
-      font-family: "SF Mono", Menlo, monospace;
-      color: var(--accent);
-    }
-
-    #start-btn {
-      margin-top: 8px;
-      padding: 10px 32px;
-      border: none;
-      border-radius: 8px;
-      background: var(--accent);
-      color: white;
-      font-size: 15px;
       font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .panel-status .status-msg { font-size: 11px; color: var(--text-dim); }
+
+    .spinner {
+      width: 22px; height: 22px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Overlay label (hover) ── */
+    .panel-label {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: linear-gradient(transparent, rgba(0,0,0,.85));
+      opacity: 0;
+      transition: opacity .2s;
+      pointer-events: none;
+    }
+    .panel:hover .panel-label { opacity: 1; pointer-events: auto; }
+
+    .label-name {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .5px;
     }
 
-    #start-btn:hover { background: #2563eb; }
+    .mute-btn {
+      width: 30px; height: 30px;
+      border: none; border-radius: 50%;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s;
+      flex-shrink: 0;
+    }
+    .mute-btn svg { width: 16px; height: 16px; fill: white; }
+    .mute-btn.is-muted   { background: var(--red); }
+    .mute-btn.is-unmuted { background: var(--green); }
   </style>
 </head>
 <body>
 
-  <!-- Startup overlay: needed because Safari blocks autoplay without user gesture -->
-  <div id="startup-overlay">
-    <h2>NEWS WALL</h2>
-    <p>
-      Live streams from 9 news sources in a configurable grid.<br>
-      All streams start muted. Hover any panel to unmute individually.
-    </p>
-    <p style="font-size:12px;margin-top:4px">
-      For best results, serve this file from localhost:
-    </p>
-    <code>python3 -m http.server 8000</code>
-    <p style="font-size:12px">
-      Then open <strong>http://localhost:8000</strong> in Safari.
-    </p>
-    <button id="start-btn" onclick="startWall()">Launch News Wall</button>
+<div id="toolbar">
+  <h1>NEWS WALL</h1>
+  <div class="toolbar-controls">
+    <!-- Layout -->
+    <button class="btn icon-btn" data-layout="2x2" title="2×2">
+      <svg viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+    </button>
+    <button class="btn icon-btn" data-layout="2x3" title="2×3">
+      <svg viewBox="0 0 16 16"><rect x="0.5" y="1" width="4.3" height="6" rx=".5"/><rect x="5.8" y="1" width="4.3" height="6" rx=".5"/><rect x="11.2" y="1" width="4.3" height="6" rx=".5"/><rect x="0.5" y="9" width="4.3" height="6" rx=".5"/><rect x="5.8" y="9" width="4.3" height="6" rx=".5"/><rect x="11.2" y="9" width="4.3" height="6" rx=".5"/></svg>
+    </button>
+    <button class="btn icon-btn" data-layout="3x3" title="3×3">
+      <svg viewBox="0 0 16 16"><rect x=".5" y=".5" width="4" height="4" rx=".5"/><rect x="6" y=".5" width="4" height="4" rx=".5"/><rect x="11.5" y=".5" width="4" height="4" rx=".5"/><rect x=".5" y="6" width="4" height="4" rx=".5"/><rect x="6" y="6" width="4" height="4" rx=".5"/><rect x="11.5" y="6" width="4" height="4" rx=".5"/><rect x=".5" y="11.5" width="4" height="4" rx=".5"/><rect x="6" y="11.5" width="4" height="4" rx=".5"/><rect x="11.5" y="11.5" width="4" height="4" rx=".5"/></svg>
+    </button>
+    <button class="btn icon-btn" data-layout="1plus" title="Focus">
+      <svg viewBox="0 0 16 16"><rect x="1" y="1" width="8" height="14" rx="1"/><rect x="11" y="1" width="4" height="6" rx="1"/><rect x="11" y="9" width="4" height="6" rx="1"/></svg>
+    </button>
+
+    <div class="divider"></div>
+
+    <button class="btn" onclick="muteAll()">
+      <svg viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+      Mute All
+    </button>
+    <button class="btn" onclick="unmuteAll()">
+      <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+      Unmute All
+    </button>
   </div>
+</div>
 
-  <div id="toolbar" style="display:none">
-    <h1>NEWS WALL</h1>
-    <div class="toolbar-controls">
-      <button class="btn layout-btn" data-layout="2x2" title="2x2 Grid">
-        <svg viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
-      </button>
-      <button class="btn layout-btn" data-layout="2x3" title="2x3 Grid">
-        <svg viewBox="0 0 16 16"><rect x="0.5" y="1" width="4.3" height="6" rx="0.5"/><rect x="5.8" y="1" width="4.3" height="6" rx="0.5"/><rect x="11.2" y="1" width="4.3" height="6" rx="0.5"/><rect x="0.5" y="9" width="4.3" height="6" rx="0.5"/><rect x="5.8" y="9" width="4.3" height="6" rx="0.5"/><rect x="11.2" y="9" width="4.3" height="6" rx="0.5"/></svg>
-      </button>
-      <button class="btn layout-btn" data-layout="3x3" title="3x3 Grid">
-        <svg viewBox="0 0 16 16"><rect x="0.5" y="0.5" width="4" height="4" rx="0.5"/><rect x="6" y="0.5" width="4" height="4" rx="0.5"/><rect x="11.5" y="0.5" width="4" height="4" rx="0.5"/><rect x="0.5" y="6" width="4" height="4" rx="0.5"/><rect x="6" y="6" width="4" height="4" rx="0.5"/><rect x="11.5" y="6" width="4" height="4" rx="0.5"/><rect x="0.5" y="11.5" width="4" height="4" rx="0.5"/><rect x="6" y="11.5" width="4" height="4" rx="0.5"/><rect x="11.5" y="11.5" width="4" height="4" rx="0.5"/></svg>
-      </button>
-      <button class="btn layout-btn" data-layout="1plus" title="1 Large + Side">
-        <svg viewBox="0 0 16 16"><rect x="1" y="1" width="8" height="14" rx="1"/><rect x="11" y="1" width="4" height="6" rx="1"/><rect x="11" y="9" width="4" height="6" rx="1"/></svg>
-      </button>
+<div id="grid" class="grid-2x3"></div>
 
-      <div class="divider"></div>
+<script>
+// ── Stream sources ────────────────────────────────────────────────────────────
+// Direct HLS streams from news networks' own CDNs — no YouTube, no error 153.
+// Each source can have fallback URLs tried in order.
+const SOURCES = [
+  {
+    name: "Al Jazeera",
+    urls: ["https://live-hls-apps-aje-fa.getaj.net/AJE/index.m3u8"],
+  },
+  {
+    name: "France 24",
+    urls: ["https://amg00106-france24-france24-samsunguk-qvpp8.amagi.tv/playlist/amg00106-france24-france24-samsunguk/playlist.m3u8"],
+  },
+  {
+    name: "DW News",
+    urls: ["https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/master.m3u8"],
+  },
+  {
+    name: "TRT World",
+    urls: ["https://tv-trtworld.medya.trt.com.tr/master.m3u8"],
+  },
+  {
+    name: "NHK World",
+    urls: ["https://media-tyo.hls.nhkworld.jp/hls/w/live/master.m3u8"],
+  },
+  {
+    name: "Euronews",
+    urls: ["https://a-cdn.klowdtv.com/live3/euronews_720p/playlist.m3u8"],
+  },
+  {
+    name: "CBC News",
+    urls: ["https://cbcrczi.akamaized.net/hls/live/2044876/cbcnewsnetwork/master.m3u8"],
+  },
+  {
+    name: "WION",
+    urls: ["https://d7x8z4yuq42qn.cloudfront.net/index_7.m3u8"],
+  },
+  {
+    name: "Africanews",
+    urls: ["https://d35j504z0x2vu2.cloudfront.net/v1/master/0bc8e8376bd8417a1b6761138aa41c26c7309312/africanews/africanews-en.m3u8"],
+  },
+];
 
-      <button class="btn" id="mute-all-btn" onclick="muteAll()">
-        <svg viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
-        Mute All
-      </button>
-      <button class="btn" id="unmute-all-btn" onclick="unmuteAll()">
-        <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-        Unmute All
+// ── State ─────────────────────────────────────────────────────────────────────
+const LAYOUT_COUNTS = { "2x2": 4, "2x3": 6, "3x3": 9, "1plus": 3 };
+let currentLayout = "2x3";
+let muteStates = {};    // index → bool
+let hlsInstances = {};  // index → Hls instance (non-Safari)
+
+// ── Grid builder ──────────────────────────────────────────────────────────────
+function buildGrid() {
+  const grid = document.getElementById("grid");
+  grid.className = `grid-${currentLayout}`;
+  grid.innerHTML = "";
+
+  // Destroy old HLS instances
+  Object.values(hlsInstances).forEach(h => h.destroy());
+  hlsInstances = {};
+
+  const count = LAYOUT_COUNTS[currentLayout] || 6;
+  SOURCES.slice(0, count).forEach((src, i) => {
+    if (muteStates[i] === undefined) muteStates[i] = true;
+    grid.appendChild(makePanel(src, i));
+    loadStream(i, src.urls, 0);
+  });
+}
+
+function makePanel(src, i) {
+  const panel = document.createElement("div");
+  panel.className = "panel";
+
+  // Status overlay (shown while loading)
+  panel.innerHTML = `
+    <div class="panel-status" id="status-${i}">
+      <div class="spinner"></div>
+      <span class="status-name">${src.name}</span>
+      <span class="status-msg" id="status-msg-${i}">Connecting…</span>
+    </div>
+    <video id="video-${i}" autoplay muted playsinline></video>
+    <div class="panel-label">
+      <span class="label-name">${src.name}</span>
+      <button class="mute-btn is-muted" data-index="${i}"
+              onclick="toggleMute(${i},this)" title="Unmute">
+        ${svgMuteOff()}
       </button>
     </div>
-  </div>
+  `;
+  return panel;
+}
 
-  <div id="grid" class="grid-2x3"></div>
+// ── Stream loader (with fallback chain) ───────────────────────────────────────
+function loadStream(i, urls, urlIdx) {
+  if (urlIdx >= urls.length) {
+    showError(i, "Stream unavailable");
+    return;
+  }
 
-  <script>
-    // YouTube channels with their handle for /live resolution
-    // We use @handle/live which redirects to the current live stream
-    const NEWS_SOURCES = [
-      { name: "ABC News",    channel: "UCBi2mrWuNuyYy4gbM6fU18Q" },
-      { name: "NBC News",    channel: "UCeY0bbntWzzVIaj2z3QigXg" },
-      { name: "CBS News",    channel: "UC8p1vwvWtl6T73JiExfWs1g" },
-      { name: "LiveNOW from Fox", channel: "UCuVFG34fkNnUkZKICs3HsnQ" },
-      { name: "Reuters",     channel: "UChqUTb7kYRX8-EiaN3XFrSQ" },
-      { name: "Sky News",    channel: "UCoMdktPbSTixAyNGwb-UYkQ" },
-      { name: "Al Jazeera",  channel: "UCNye-wNBqNL5ZzHSJj3l8Bg" },
-      { name: "France 24",   channel: "UCQfwfsi5VrQ8yKZ-UWmAEFg" },
-      { name: "DW News",     channel: "UCknLrEdhRCp1aegoMqRaCZg" },
-    ];
+  const url = urls[urlIdx];
+  const video = document.getElementById(`video-${i}`);
+  if (!video) return;
 
-    // State
-    let currentLayout = "2x3";
-    let muteStates = {};
-    let players = {};
+  video.muted = muteStates[i];
 
-    // Load YouTube IFrame API
-    const tag = document.createElement("script");
-    tag.src = "https://www.youtube.com/iframe_api";
-    document.head.appendChild(tag);
+  const tryNext = () => loadStream(i, urls, urlIdx + 1);
 
-    let ytReady = false;
-    let ytReadyQueue = [];
+  // Safari: native HLS support
+  if (video.canPlayType("application/vnd.apple.mpegurl")) {
+    video.src = url;
+    video.addEventListener("canplay", () => hideStatus(i), { once: true });
+    video.addEventListener("error", tryNext, { once: true });
+    video.play().catch(() => {});
+    return;
+  }
 
-    window.onYouTubeIframeAPIReady = function () {
-      ytReady = true;
-      ytReadyQueue.forEach(cb => cb());
-      ytReadyQueue = [];
-    };
-
-    function whenYTReady(cb) {
-      if (ytReady) cb();
-      else ytReadyQueue.push(cb);
-    }
-
-    const LAYOUT_COUNTS = { "2x2": 4, "2x3": 6, "3x3": 9, "1plus": 3 };
-
-    function embedUrl(channelId, muted) {
-      // Use youtube-nocookie.com to avoid referrer/cookie issues
-      // The live_stream?channel= endpoint resolves to the channel's active live broadcast
-      const params = new URLSearchParams({
-        channel: channelId,
-        autoplay: "1",
-        mute: muted ? "1" : "0",
-        controls: "0",
-        rel: "0",
-        playsinline: "1",
-        enablejsapi: "1",
-        origin: window.location.origin,
-      });
-      return `https://www.youtube-nocookie.com/embed/live_stream?${params}`;
-    }
-
-    function buildGrid() {
-      const grid = document.getElementById("grid");
-      grid.className = `grid-${currentLayout}`;
-      grid.innerHTML = "";
-
-      // Destroy existing players
-      Object.values(players).forEach(p => { try { p.destroy(); } catch(e) {} });
-      players = {};
-
-      const count = LAYOUT_COUNTS[currentLayout] || 6;
-      const sources = NEWS_SOURCES.slice(0, count);
-
-      sources.forEach((source, i) => {
-        if (muteStates[i] === undefined) muteStates[i] = true;
-
-        const panel = document.createElement("div");
-        panel.className = "panel";
-        panel.dataset.index = i;
-
-        const iframe = document.createElement("iframe");
-        iframe.id = `iframe-${i}`;
-        iframe.allow = "autoplay; encrypted-media";
-        iframe.setAttribute("allowfullscreen", "");
-        iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-        iframe.src = embedUrl(source.channel, muteStates[i]);
-
-        const label = document.createElement("div");
-        label.className = "panel-label";
-        label.innerHTML = `
-          <span class="label-name">${source.name}</span>
-          <button class="mute-btn muted" data-index="${i}" onclick="toggleMute(${i}, this)" title="Unmute">
-            ${muteOffSVG()}
-          </button>
-        `;
-
-        panel.appendChild(iframe);
-        panel.appendChild(label);
-        grid.appendChild(panel);
-
-        // Wrap iframe with YT Player API for mute/unmute control
-        whenYTReady(() => {
-          try {
-            players[i] = new YT.Player(`iframe-${i}`, {
-              events: {
-                onReady: function(event) {
-                  if (muteStates[i]) event.target.mute();
-                  event.target.playVideo();
-                },
-                onError: function(event) {
-                  // Error 150/101 = embedding restricted, 153 = referrer issue
-                  // Try reloading with standard youtube.com as fallback
-                  const iframe = document.getElementById(`iframe-${i}`);
-                  if (iframe && !iframe.dataset.retried) {
-                    iframe.dataset.retried = "1";
-                    const params = new URLSearchParams({
-                      channel: source.channel,
-                      autoplay: "1",
-                      mute: "1",
-                      controls: "0",
-                      rel: "0",
-                      playsinline: "1",
-                    });
-                    iframe.src = `https://www.youtube.com/embed/live_stream?${params}`;
-                  }
-                }
-              }
-            });
-          } catch(e) {}
-        });
-      });
-    }
-
-    function toggleMute(index, btnEl) {
-      const player = players[index];
-      const isMuted = muteStates[index];
-
-      if (player && typeof player.isMuted === "function") {
-        if (isMuted) {
-          player.unMute();
-          muteStates[index] = false;
-        } else {
-          player.mute();
-          muteStates[index] = true;
-        }
-      } else {
-        // Fallback: reload iframe with toggled mute param
-        const source = NEWS_SOURCES[index];
-        const iframe = document.getElementById(`iframe-${index}`);
-        muteStates[index] = !isMuted;
-        iframe.src = embedUrl(source.channel, muteStates[index]);
-      }
-
-      updateMuteButton(btnEl, muteStates[index]);
-    }
-
-    function muteAll() {
-      const count = LAYOUT_COUNTS[currentLayout] || 6;
-      for (let i = 0; i < count; i++) {
-        const player = players[i];
-        if (player && typeof player.mute === "function") {
-          player.mute();
-        }
-        muteStates[i] = true;
-      }
-      updateAllMuteButtons();
-    }
-
-    function unmuteAll() {
-      const count = LAYOUT_COUNTS[currentLayout] || 6;
-      for (let i = 0; i < count; i++) {
-        const player = players[i];
-        if (player && typeof player.unMute === "function") {
-          player.unMute();
-        }
-        muteStates[i] = false;
-      }
-      updateAllMuteButtons();
-    }
-
-    function updateMuteButton(btn, muted) {
-      btn.className = `mute-btn ${muted ? 'muted' : 'unmuted'}`;
-      btn.title = muted ? "Unmute" : "Mute";
-      btn.innerHTML = muted ? muteOffSVG() : muteOnSVG();
-    }
-
-    function updateAllMuteButtons() {
-      document.querySelectorAll(".mute-btn").forEach(btn => {
-        const idx = parseInt(btn.dataset.index);
-        updateMuteButton(btn, muteStates[idx]);
-      });
-    }
-
-    function muteOnSVG() {
-      return '<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>';
-    }
-
-    function muteOffSVG() {
-      return '<svg viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>';
-    }
-
-    // Layout switching
-    document.querySelectorAll(".layout-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        document.querySelectorAll(".layout-btn").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        currentLayout = btn.dataset.layout;
-        buildGrid();
-      });
+  // Other browsers: use HLS.js
+  if (Hls.isSupported()) {
+    const hls = new Hls({ lowLatencyMode: true });
+    hlsInstances[i] = hls;
+    hls.loadSource(url);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      video.play().catch(() => {});
     });
-
-    document.querySelector('[data-layout="2x3"]').classList.add("active");
-
-    // Keyboard shortcuts: M = mute all, U = unmute all
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "m" || e.key === "M") muteAll();
-      if (e.key === "u" || e.key === "U") unmuteAll();
+    hls.on(Hls.Events.ERROR, (_, data) => {
+      if (data.fatal) {
+        hls.destroy();
+        delete hlsInstances[i];
+        tryNext();
+      }
     });
+    video.addEventListener("canplay", () => hideStatus(i), { once: true });
+  } else {
+    showError(i, "HLS not supported");
+  }
+}
 
-    // Start wall after user click (required for Safari autoplay policy)
-    function startWall() {
-      document.getElementById("startup-overlay").classList.add("hidden");
-      document.getElementById("toolbar").style.display = "flex";
-      buildGrid();
-    }
-  </script>
+function hideStatus(i) {
+  const el = document.getElementById(`status-${i}`);
+  if (el) el.classList.add("gone");
+}
+
+function showError(i, msg) {
+  const el = document.getElementById(`status-${i}`);
+  const msgEl = document.getElementById(`status-msg-${i}`);
+  if (el) { el.querySelector(".spinner").style.display = "none"; }
+  if (msgEl) msgEl.textContent = msg;
+}
+
+// ── Mute controls ─────────────────────────────────────────────────────────────
+function toggleMute(i, btn) {
+  const video = document.getElementById(`video-${i}`);
+  if (!video) return;
+  muteStates[i] = !muteStates[i];
+  video.muted = muteStates[i];
+  refreshBtn(btn, muteStates[i]);
+}
+
+function muteAll() {
+  setAllMute(true);
+}
+
+function unmuteAll() {
+  setAllMute(false);
+}
+
+function setAllMute(muted) {
+  const count = LAYOUT_COUNTS[currentLayout] || 6;
+  for (let i = 0; i < count; i++) {
+    muteStates[i] = muted;
+    const v = document.getElementById(`video-${i}`);
+    if (v) v.muted = muted;
+  }
+  document.querySelectorAll(".mute-btn").forEach(btn => {
+    refreshBtn(btn, muted);
+  });
+}
+
+function refreshBtn(btn, muted) {
+  btn.className = `mute-btn ${muted ? "is-muted" : "is-unmuted"}`;
+  btn.title = muted ? "Unmute" : "Mute";
+  btn.innerHTML = muted ? svgMuteOff() : svgMuteOn();
+}
+
+// ── SVG icons ─────────────────────────────────────────────────────────────────
+function svgMuteOn() {
+  return '<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>';
+}
+function svgMuteOff() {
+  return '<svg viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>';
+}
+
+// ── Layout switching ──────────────────────────────────────────────────────────
+document.querySelectorAll("[data-layout]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("[data-layout]").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentLayout = btn.dataset.layout;
+    buildGrid();
+  });
+});
+document.querySelector('[data-layout="2x3"]').classList.add("active");
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+document.addEventListener("keydown", e => {
+  if (e.key === "m" || e.key === "M") muteAll();
+  if (e.key === "u" || e.key === "U") unmuteAll();
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+buildGrid();
+</script>
 </body>
 </html>
