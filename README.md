@@ -1,54 +1,91 @@
 # News Wall
 
-`News Wall` is a lightweight single-page dashboard for watching multiple live news channels at once in a configurable grid.
+A lightweight, single-page dashboard for watching multiple live international news channels simultaneously in a configurable grid layout. No installation, no build step — just open and watch.
 
-It is built as a static HTML file with:
+## Features
 
-- `hls.js` for HLS playback in browsers that do not support HLS natively
-- Multiple preset layouts including `2x2`, `2x3`, `3x3`, `4x3`, and `1plus`
-- Per-panel mute controls
-- A global `Mute All` action
-- Caption detection and top-positioned caption overlays when tracks are available
-- Fallback stream URLs for some channels
+- **Multiple layouts** — choose from `2x2`, `2x3`, `3x3`, `4x3`, or `1plus` (focus view)
+- **Per-panel mute controls** — independently mute any panel
+- **Global mute** — mute all panels at once via the `Mute All` button or press `M`
+- **Closed caption support** — auto-detected and shown as top-positioned overlays when available
+- **Fallback streams** — multiple URLs per channel for resilience when a stream goes down
+- **Zero dependencies** — only `hls.js` (loaded from CDN) for HLS playback in non-Safari browsers
+- **Dark theme** — clean, focused UI
 
-## Project Structure
+## Channels
 
-- `index.html` - the entire app, including markup, styles, stream configuration, and client-side logic
+| Channel | Region |
+|---|---|
+| Global News | Canada |
+| Al Jazeera | Qatar / International |
+| MSNBC Now | USA |
+| Bloomberg | USA / International |
+| France 24 | France / International |
+| DW News | Germany / International |
+| TRT World | Turkey / International |
+| NHK World | Japan / International |
+| Euronews | Europe |
+| WION | India / International |
+| Arirang | South Korea / International |
+| NDTV 24x7 | India |
 
-## Run Locally
+> **Note:** Stream URLs point to live HLS feeds that can change or go offline without notice. If a channel stops working, the stream URL likely needs updating.
 
-This project does not need a build step or package install. It just needs to be served as static files from a local web server.
+## Getting Started
 
-### Option 1: Python
+This project is a single static HTML file. No build step or package installation is needed — just serve it with any local HTTP server.
 
-From the project directory:
+### Python
 
 ```bash
 python3 -m http.server 9988
 ```
 
-Then open:
-
-```text
-http://localhost:9988
-```
-
-### Option 2: Node.js
-
-If you prefer a Node-based static server:
+### Node.js
 
 ```bash
 npx serve . -l 9988
 ```
 
-Then open:
+Then open [http://localhost:9988](http://localhost:9988) in your browser.
 
-```text
-http://localhost:9988
+## Browser Compatibility
+
+| Browser | HLS Playback |
+|---|---|
+| Safari | Native HLS support |
+| Chrome, Firefox, Edge | Via `hls.js` (CDN) |
+
+## Project Structure
+
+```
+news-wall/
+└── index.html   # The entire app — markup, styles, stream config, and logic
 ```
 
-## Notes
+## Contributing
 
-- Some streams may fail or change over time; several sources include fallback URLs.
-- Closed captions depend on whether the upstream stream exposes text tracks.
-- Safari can use native HLS support; other modern browsers rely on the included `hls.js` CDN script.
+Contributions are welcome. Some useful things to improve:
+
+- Updated or additional stream URLs when channels change
+- New channel sources
+- Layout or UI improvements
+- Bug fixes
+
+Please open an issue before submitting a large change, so we can discuss the approach first.
+
+## Stream Reliability
+
+Live stream URLs are sourced from public HLS feeds and can break when:
+
+- A broadcaster changes or removes their stream URL
+- A CDN endpoint goes down or requires authentication
+- Geographic restrictions prevent access
+
+If a channel shows a black screen or error, try refreshing. If it persists, the stream URL may need to be updated in `index.html`.
+
+## License
+
+[MIT](LICENSE) — free to use, modify, and distribute.
+
+If you build something with this project, a link back to [github.com/rkenedi/news-wall](https://github.com/rkenedi/news-wall) is appreciated (though not required).
