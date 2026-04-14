@@ -84,8 +84,16 @@ Live stream URLs are sourced from public HLS feeds and can break when:
 
 If a channel shows a black screen or error, try refreshing. If it persists, the stream URL may need to be updated in `index.html`.
 
+## Legal
+This project does not own or provide any stream content.
+
+If you use third-party streams, you are responsible for complying with:
+	•	their terms of use
+	•	regional restrictions
+	•	embedding policies
+
 ## License
 
 [MIT](LICENSE) — free to use, modify, and distribute.
 
-If you build something with this project, a link back to [github.com/rkenedi/news-wall](https://github.com/rkenedi/news-wall) is appreciated (though not required).
+If you build something with this project, a link back to [github.com/rkenedi/news-wall](https://github.com/rkenedi/news-wall) is appreciated.
