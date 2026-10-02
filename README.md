@@ -1,3 +1,5 @@
+![App screenshot](newsWall.gif)
+
 # News Wall
 
 A lightweight, single-page dashboard for watching multiple live international news channels simultaneously in a configurable grid layout. No installation, no build step — just open and watch.
